@@ -455,6 +455,7 @@ fn generate_bindings(
     defines: &Vec<(String, Option<String>)>,
     rustify_enums: &Vec<&str>,
 ) {
+    let out_path = PathBuf::from(getenv("OUT_DIR"));
     let sysroot = cc::Build::new()
         .get_compiler()
         .to_command()
@@ -462,42 +463,51 @@ fn generate_bindings(
         .output()
         .unwrap();
     let sysroot = PathBuf::from(std::str::from_utf8(&sysroot.stdout).unwrap().trim_end());
-    let mut builder = bindgen::Builder::default()
-        .header("bindings.h")
-        .wrap_static_fns(true)
-        .ctypes_prefix("cty")
-        .use_core()
-        .size_t_is_usize(true)
-        .clang_arg("-D__SOFTFP__")
-        .clang_arg(format!("--sysroot={}", sysroot.to_str().unwrap()))
-        .clang_arg("-Wno-expansion-to-defined");
+    let mut builder = std::process::Command::new("bindgen");
+    builder
+        .arg("bindings.h")
+        .arg("--experimental")
+        .arg("--wrap-static-fns")
+        .arg("--ctypes-prefix=cty")
+        .arg("--use-core")
+        .arg("-o")
+        .arg(out_path.join("bindings.rs"));
+
+    for re in rustify_enums {
+        builder.arg("--rustified-enum");
+        builder.arg(re);
+    }
+
+    // All arguments added below this line will be pass as "clang args"
+
+    builder
+        .arg("--")
+        .arg("-D__SOFTFP__")
+        .arg("--sysroot")
+        .arg(sysroot.to_str().unwrap())
+        .arg("-Wno-expansion-to-defined");
 
     for (key, value) in defines {
         if let Some(value) = value {
-            builder = builder.clang_arg(format!("-D{}={}", key, value));
+            builder.arg(format!("-D{}={}", key, value));
         } else {
-            builder = builder.clang_arg(format!("-D{}", key));
+            builder.arg(format!("-D{}", key));
         }
     }
 
     for inc_dir in include_dirs {
-        builder = builder.clang_arg(format!("-I{}", translate_path(inc_dir)));
+        builder.arg(format!("-I{}", translate_path(inc_dir)));
     }
 
     for inc_file in include_files {
-        builder = builder.clang_args(vec!["-include", &translate_path(inc_file)]);
+        builder.args(vec!["-include", &translate_path(inc_file)]);
     }
 
-    for re in rustify_enums {
-        builder = builder.rustified_enum(re)
+    let status = builder.status().expect("Unable to generate bindings");
+    if !status.success() {
+        println!("cargo::warning=Unable to generate bindings");
+        std::process::exit(status.code().unwrap());
     }
-
-    let bindings = builder.generate().expect("Unable to generate bindings");
-
-    let out_path = PathBuf::from(getenv("OUT_DIR"));
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
 }
 
 fn compile_sdk(
