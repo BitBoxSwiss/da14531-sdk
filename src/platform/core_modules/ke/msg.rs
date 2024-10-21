@@ -7,6 +7,24 @@ use crate::platform::core_modules::ke::task::KeTaskId;
 
 pub struct KernelMessage<const ID: u32, const SIZE: u16, T>(*mut T);
 
+/// Build task identifier from type and index
+#[inline]
+pub const fn ke_build_id(typ: u8, index: u8) -> KeMsgId {
+    ((index as KeMsgId) << 8) | (typ as KeMsgId)
+}
+
+/// Retreive type from task identifier
+#[inline]
+pub const fn ke_type_get(ke_task_id: KeTaskId) -> u8 {
+    (ke_task_id & 0xff) as u8
+}
+
+/// Retreive type from task identifier
+#[inline]
+pub const fn ke_idx_get(ke_task_id: KeTaskId) -> u8 {
+    ((ke_task_id >> 8) & 0xff) as u8
+}
+
 impl<const ID: u32, const SIZE: u16, T> KernelMessage<ID, SIZE, T> {
     pub fn new(src_id: KeMsgId, dest_id: KeMsgId) -> Self {
         let msg_ptr = unsafe {

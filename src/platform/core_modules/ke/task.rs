@@ -23,3 +23,15 @@ pub fn ke_task_create(task_type: u8, task_desc: &KeTaskDesc) {
         crate::bindings::ke_task_create(task_type, task_desc);
     }
 }
+
+/// Retrieve the task Type (task index) from message
+#[inline]
+pub const fn msg_t(msg: KeTaskId) -> u8 {
+    (msg >> 8) as u8
+}
+
+/// Retrieve the Task ID (message index) from the message
+#[inline]
+pub const fn msg_i(msg: KeTaskId) -> u8 {
+    (msg & 0xff) as u8
+}
