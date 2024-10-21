@@ -4,18 +4,21 @@ use crate::{
         host::gap::gapm::task::{KeMsgDynGapmProfileTaskAdd, GAPM_PROFILE_TASK_ADD},
         profiles::custom::custs::custs1::Custs1DbCfg,
     },
-    platform::core_modules::rwip::{TASK_APP, TASK_GAPM, TASK_ID_CUSTS1},
+    platform::core_modules::rwip::{KeApiId::TASK_ID_CUSTS1, KeTaskType},
 };
 
 #[no_mangle]
 pub extern "C" fn app_custs1_create_db() {
     const SIZE: u16 = core::mem::size_of::<Custs1DbCfg>() as u16;
-    let mut msg = KeMsgDynGapmProfileTaskAdd::<SIZE>::new(TASK_APP as u16, TASK_GAPM as u16);
+    let mut msg = KeMsgDynGapmProfileTaskAdd::<SIZE>::new(
+        KeTaskType::TASK_APP as u16,
+        KeTaskType::TASK_GAPM as u16,
+    );
 
     msg.fields().operation = GAPM_PROFILE_TASK_ADD as u8;
     msg.fields().sec_lvl = get_user_prf_srv_perm(TASK_ID_CUSTS1) as u8;
     msg.fields().prf_task_id = TASK_ID_CUSTS1 as u16;
-    msg.fields().app_task = TASK_APP as u16;
+    msg.fields().app_task = KeTaskType::TASK_APP as u16;
     msg.fields().start_hdl = 0;
 
     let db_cfg_ptr = &mut msg.fields().param as *mut _ as *mut Custs1DbCfg;

@@ -108,7 +108,7 @@ pub fn app_easy_gap_update_adv_data(
 }
 
 #[inline]
-pub fn get_user_prf_srv_perm(task_id: KeApiId) -> AppPrfSrvPerm {
+pub fn get_user_prf_srv_perm(task_id: KeApiId::Type) -> AppPrfSrvPerm {
     unsafe { crate::bindings::get_user_prf_srv_perm(task_id) }
 }
 

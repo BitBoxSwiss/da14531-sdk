@@ -14,7 +14,7 @@ unsafe impl Sync for RomCustPrfCfg {}
 #[derive(Debug, Copy, Clone)]
 pub struct CustPrfFuncCallbacks {
     #[doc = " Profile Task ID."]
-    pub task_id: KeApiId,
+    pub task_id: KeApiId::Type,
     #[doc = " pointer to the custom database table defined by user"]
     pub att_db: usize,
     #[doc = " max number of attributes in custom database"]

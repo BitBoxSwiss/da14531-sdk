@@ -453,7 +453,6 @@ fn generate_bindings(
     include_dirs: &Vec<String>,
     include_files: &Vec<String>,
     defines: &Vec<(String, Option<String>)>,
-    rustify_enums: &Vec<&str>,
 ) {
     let out_path = PathBuf::from(getenv("OUT_DIR"));
     let sysroot = cc::Build::new()
@@ -473,8 +472,21 @@ fn generate_bindings(
         .arg("-o")
         .arg(out_path.join("bindings.rs"));
 
+    let rustify_enums = &[
+        "hl_err",
+        "process_event_response",
+        "syscntl_dcdc_level_t",
+        "APP_MSG",
+        "rf_tx_pwr_lvl_t",
+    ];
     for re in rustify_enums {
         builder.arg("--rustified-enum");
+        builder.arg(re);
+    }
+
+    let constify_enum_module = &["KE_API_ID", "KE_TASK_TYPE", "gapc_msg_id"];
+    for re in constify_enum_module {
+        builder.arg("--constified-enum-module");
         builder.arg(re);
     }
 
@@ -684,18 +696,7 @@ fn main() {
     generate_da14531_config_basic();
     generate_da14531_config_advanced();
 
-    generate_bindings(
-        &include_dirs,
-        &include_files,
-        &defines,
-        &vec![
-            "hl_err",
-            "process_event_response",
-            "syscntl_dcdc_level_t",
-            "APP_MSG",
-            "rf_tx_pwr_lvl_t",
-        ],
-    );
+    generate_bindings(&include_dirs, &include_files, &defines);
 
     compile_sdk(
         &include_dirs,

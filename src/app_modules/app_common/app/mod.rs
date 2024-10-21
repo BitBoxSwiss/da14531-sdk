@@ -25,7 +25,7 @@ use crate::{
             co_min, BDAddr, ADV_ALLOW_SCAN_ANY_CON_WLST, ADV_DATA_LEN, KEY_LEN, SCAN_RSP_DATA_LEN,
         },
         ke::task::{ke_state_set, ke_task_create, KeTaskDesc},
-        rwip::{KeApiId, TASK_APP, TASK_GAPM, TASK_ID_DISS, TASK_ID_INVALID},
+        rwip::{KeApiId, KeTaskType},
     },
 };
 
@@ -125,7 +125,7 @@ const PRF_FUNCS: [PrfFuncCallbacks;
     },
     #[cfg(feature = "profile_dis_server")]
     PrfFuncCallbacks {
-        task_id: TASK_ID_DISS,
+        task_id: KeApiId::TASK_ID_DISS,
         db_create_func: Some(crate::bindings::app_diss_create_db),
         enable_func: None,
     },
@@ -215,7 +215,7 @@ extern "Rust" {
 }
 
 const USER_PRF_FUNCS: [PrfFuncCallbacks; 1] = [PrfFuncCallbacks {
-    task_id: TASK_ID_INVALID,
+    task_id: KeApiId::TASK_ID_INVALID,
     db_create_func: None,
     enable_func: None,
 }];
@@ -279,7 +279,7 @@ fn reset_app_env() {
     });
 }
 
-fn app_task_in_user_app(task_id: KeApiId) -> bool {
+fn app_task_in_user_app(task_id: KeApiId::Type) -> bool {
     USER_PRF_FUNCS
         .iter()
         .any(|user_prf_func| user_prf_func.task_id == task_id)
@@ -336,7 +336,8 @@ fn app_easy_gap_undirected_advertise_start_create_msg() -> KeMsgGapmStartAdverti
     assert!(user_advertise_data.len() <= ADV_DATA_LEN as usize);
     assert!(USER_ADVERTISE_SCAN_RESPONSE_DATA.len() <= SCAN_RSP_DATA_LEN as usize);
 
-    let mut cmd = KeMsgGapmStartAdvertiseCmd::new(TASK_APP as u16, TASK_GAPM as u16);
+    let mut cmd =
+        KeMsgGapmStartAdvertiseCmd::new(KeTaskType::TASK_APP as u16, KeTaskType::TASK_GAPM as u16);
 
     let msg = cmd.fields();
 
@@ -426,7 +427,8 @@ fn app_easy_gap_undirected_advertise_start_create_msg() -> KeMsgGapmStartAdverti
 }
 
 fn app_easy_gap_dev_config_create_msg() -> KeMsgGapmSetDevConfigCmd {
-    let mut cmd = KeMsgGapmSetDevConfigCmd::new(TASK_APP as u16, TASK_GAPM as u16);
+    let mut cmd =
+        KeMsgGapmSetDevConfigCmd::new(KeTaskType::TASK_APP as u16, KeTaskType::TASK_GAPM as u16);
 
     let msg = cmd.fields();
 
@@ -505,14 +507,14 @@ pub extern "C" fn app_init() {
 
     update_device_info();
 
-    ke_task_create(TASK_APP as u8, &TASK_DESC_APP);
+    ke_task_create(KeTaskType::TASK_APP as u8, &TASK_DESC_APP);
 
-    ke_state_set(TASK_APP as u16, APP_DISABLED as u8);
+    ke_state_set(KeTaskType::TASK_APP as u16, APP_DISABLED as u8);
 }
 
 pub fn app_easy_gap_undirected_advertise_start() {
     app_easy_gap_undirected_advertise_start_create_msg().send();
-    ke_state_set(TASK_APP as u16, APP_CONNECTABLE as u8);
+    ke_state_set(KeTaskType::TASK_APP as u16, APP_CONNECTABLE as u8);
 }
 
 #[inline]
