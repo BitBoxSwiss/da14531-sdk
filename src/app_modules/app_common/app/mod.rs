@@ -222,7 +222,8 @@ const USER_PRF_FUNCS: [PrfFuncCallbacks; 1] = [PrfFuncCallbacks {
 
 static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     role: GAP_ROLE_PERIPHERAL,
-    max_mtu: 23,
+    // max_mut taken from "dynamic L2CAP Packet Size Optimization" example
+    max_mtu: 247,
     #[cfg(feature = "address_mode_public")]
     addr_type: app_cfg_addr_type(APP_CFG_ADDR_PUB),
     #[cfg(feature = "address_mode_static")]
@@ -237,8 +238,8 @@ static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     gap_start_hdl: 0,
     gatt_start_hdl: 0,
     max_mps: 0,
-    max_txoctets: 251,
-    max_txtime: 2120,
+    max_txoctets: crate::bindings::CFG_MAX_TX_PACKET_LENGTH as u16,
+    max_txtime: ((crate::bindings::CFG_MAX_TX_PACKET_LENGTH + 11 + 3) * 8) as u16,
 };
 
 #[allow(static_mut_refs)]
