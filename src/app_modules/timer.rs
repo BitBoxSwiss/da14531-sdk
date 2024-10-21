@@ -1,6 +1,8 @@
-use core::mem;
-
 use alloc::boxed::Box;
+use core::mem;
+use core::slice;
+use grounded::const_init::ConstInit;
+use grounded::uninit::GroundedArrayCell;
 
 use crate::{
     bindings::{
@@ -33,13 +35,17 @@ kernel_msg_type!(private, Modify, AppTimerParams, MSG_APP_MODIFY_TIMER);
 kernel_msg_type!(private, Cancel, AppTimerParams, MSG_APP_CANCEL_TIMER);
 
 // pub type TimerCallback = fn();
-pub type TimerCallback = Box<dyn Fn()>;
+pub type TimerCallback = dyn FnOnce() + 'static + Sync;
 
 enum TimerState {
     None,
     Modified,
     Canceled,
-    Active(TimerCallback),
+    Active(Box<TimerCallback>),
+}
+
+impl ConstInit for TimerState {
+    const VAL: Self = TimerState::None;
 }
 
 impl PartialEq for TimerState {
@@ -52,7 +58,7 @@ impl PartialEq for TimerState {
 }
 
 impl TimerState {
-    pub fn take_callback(&mut self) -> Option<TimerCallback> {
+    pub fn take_callback(&mut self) -> Option<Box<TimerCallback>> {
         if let TimerState::Active(_) = self {
             let current_state = mem::replace(self, TimerState::None);
             if let TimerState::Active(callback) = current_state {
@@ -65,16 +71,8 @@ impl TimerState {
 
 #[used]
 #[link_section = "retention_mem_area0"]
-static mut TIMER_CALLBACKS: [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] =
-    [const { TimerState::None }; APP_MODULES_TIMER_MAX_NUM as usize];
-
-/// # Safety
-///
-/// Must not be called outside main thread
-#[allow(static_mut_refs)]
-unsafe fn timer_callbacks() -> &'static mut [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] {
-    &mut TIMER_CALLBACKS
-}
+static TIMER_CALLBACKS: GroundedArrayCell<TimerState, { APP_MODULES_TIMER_MAX_NUM as usize }> =
+    GroundedArrayCell::const_init();
 
 // #[link_section = "retention_mem_area0"]
 // static mut MODIFIED_TIMER_CALLBACKS: [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] =
@@ -107,10 +105,18 @@ fn is_timer_handle_valid(handle: TimerHandle) -> bool {
 pub struct AppTimer(TimerHandle);
 
 impl AppTimer {
-    pub fn new(delay: u32, callback: TimerCallback) -> Option<Self> {
+    pub fn new(delay: u32, callback: impl FnOnce() + 'static + Sync) -> Option<Self> {
         assert!(delay <= KE_TIMER_DELAY_MAX);
 
-        if let Some(handle) = register_callback(callback) {
+        let callback = Box::new(callback);
+
+        // SAFETY: TIMER_CALLBACKS is const initialized
+        let timer_callbacks = unsafe {
+            let (ptr, len) = TIMER_CALLBACKS.get_ptr_len();
+            slice::from_raw_parts_mut(ptr, len)
+        };
+
+        if let Some(handle) = register_callback(timer_callbacks, callback) {
             create_timer(delay, handle);
 
             Some(Self(handle))
@@ -156,14 +162,18 @@ impl AppTimer {
         // assert!(is_timer_handle_valid(self.0));
 
         let timer_idx = timer_handle_to_index(self.0);
+        let timer_callbacks = unsafe {
+            let (ptr, len) = TIMER_CALLBACKS.get_ptr_len();
+            slice::from_raw_parts_mut(ptr, len)
+        };
 
-        let callback = unsafe { &timer_callbacks()[timer_idx] };
+        let callback = &timer_callbacks[timer_idx];
 
         if *callback != TimerState::None && *callback != TimerState::Modified {
             // Remove the timer from the timer queue
             ke_timer_clear(timer_handle_to_msg_id(self.0), KeTaskType::TASK_APP as u16);
 
-            unsafe { timer_callbacks()[timer_idx] = TimerState::Canceled };
+            timer_callbacks[timer_idx] = TimerState::Canceled;
 
             /*
                 Send a message to the kernel in order to clear the timer callback function and
@@ -184,7 +194,11 @@ impl AppTimer {
     }
 
     pub fn cancel_all() {
-        for (timer_idx, callback) in unsafe { timer_callbacks().iter().enumerate() } {
+        let timer_callbacks = unsafe {
+            let (ptr, len) = TIMER_CALLBACKS.get_ptr_len();
+            slice::from_raw_parts_mut(ptr, len)
+        };
+        for (timer_idx, callback) in timer_callbacks.iter().enumerate() {
             if *callback != TimerState::None && *callback != TimerState::Canceled {
                 let handle = timer_index_to_handle(timer_idx);
                 let timer = AppTimer(handle);
@@ -209,13 +223,18 @@ pub unsafe extern "C" fn app_timer_api_process_handler(
 
     let timer_params = &*(param as *const AppTimerParams);
 
+    let timer_callbacks = unsafe {
+        let (ptr, len) = TIMER_CALLBACKS.get_ptr_len();
+        slice::from_raw_parts_mut(ptr, len)
+    };
+
     match app_msg {
         AppMsg::APP_CREATE_TIMER => {
             *msg_ret = create_timer_handler(timer_params.handle, timer_params.delay);
             ProcessEventResponse::PR_EVENT_HANDLED
         }
         AppMsg::APP_CANCEL_TIMER => {
-            *msg_ret = cancel_timer_handler(timer_params.handle);
+            *msg_ret = cancel_timer_handler(timer_callbacks, timer_params.handle);
             ProcessEventResponse::PR_EVENT_HANDLED
         }
         AppMsg::APP_MODIFY_TIMER => {
@@ -229,7 +248,7 @@ pub unsafe extern "C" fn app_timer_api_process_handler(
                 ProcessEventResponse::PR_EVENT_UNHANDLED
             } else {
                 let handle = timer_msg_id_to_handle(msg_id);
-                *msg_ret = call_timer_callback_handler(handle);
+                *msg_ret = call_timer_callback_handler(timer_callbacks, handle);
                 ProcessEventResponse::PR_EVENT_HANDLED
             }
         }
@@ -246,10 +265,10 @@ fn create_timer_handler(handle: TimerHandle, delay: u32) -> KeMsgStatusTag {
     KE_MSG_CONSUMED
 }
 
-fn cancel_timer_handler(handle: TimerHandle) -> KeMsgStatusTag {
+fn cancel_timer_handler(timer_callbacks: &mut [TimerState], handle: TimerHandle) -> KeMsgStatusTag {
     assert!(is_timer_handle_valid(handle));
     let timer_idx = timer_handle_to_index(handle);
-    let callback = unsafe { &mut timer_callbacks()[timer_idx] };
+    let callback = &mut timer_callbacks[timer_idx];
     if *callback == TimerState::Canceled {
         *callback = TimerState::None;
         //         modified_timer_callbacks[i] = NULL;
@@ -265,7 +284,7 @@ fn cancel_timer_handler(handle: TimerHandle) -> KeMsgStatusTag {
     KE_MSG_CONSUMED
 }
 
-// fn modify_timer_handler(handle: TimerHandle, delay: u32) -> KeMsgStatusTag {
+// fn modify_timer_handler(timer_callbacks: &mut [TimerState], handle: TimerHandle, delay: u32) -> KeMsgStatusTag {
 //     // if APP_EASY_TIMER_HND_IS_VALID(param->handle)
 //     // {
 //     //     int i = APP_EASY_TIMER_HND_TO_IDX(param->handle);
@@ -284,12 +303,16 @@ fn cancel_timer_handler(handle: TimerHandle) -> KeMsgStatusTag {
 //     KeMsgStatusTag::KE_MSG_CONSUMED
 // }
 
-fn call_timer_callback_handler(handle: TimerHandle) -> KeMsgStatusTag {
-    let callback = unsafe { &mut timer_callbacks()[timer_handle_to_index(handle)] };
+fn call_timer_callback_handler(
+    timer_callbacks: &mut [TimerState],
+    handle: TimerHandle,
+) -> KeMsgStatusTag {
+    let callback = &mut timer_callbacks[timer_handle_to_index(handle)];
 
     if *callback != TimerState::Canceled && *callback != TimerState::Modified {
         if let Some(callback) = callback.take_callback() {
             // //                 modified_timer_callbacks[APP_EASY_TIMER_HND_TO_IDX(handle)] = NULL;
+            //rprintln!("TIMER CALLED");
             callback();
         }
     }
@@ -317,8 +340,11 @@ fn create_timer(delay: u32, handle: TimerHandle) {
 }
 
 #[inline]
-fn register_callback(callback: TimerCallback) -> Option<TimerHandle> {
-    for (idx, callback_entry) in unsafe { timer_callbacks().iter_mut().enumerate() } {
+fn register_callback(
+    timer_callbacks: &mut [TimerState],
+    callback: Box<TimerCallback>,
+) -> Option<TimerHandle> {
+    for (idx, callback_entry) in timer_callbacks.iter_mut().enumerate() {
         if *callback_entry == TimerState::None {
             *callback_entry = TimerState::Active(callback);
             return Some(timer_index_to_handle(idx));
