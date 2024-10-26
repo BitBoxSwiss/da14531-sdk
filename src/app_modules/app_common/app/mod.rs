@@ -65,6 +65,7 @@ static mut device_info: AppDeviceInfo = AppDeviceInfo {
 extern "Rust" {
     pub static USER_DEVICE_NAME: &'static str;
     pub static user_app_callbacks: AppCallbacks;
+    pub static USER_DEVICE_APPEARANCE: u16;
 }
 
 macro_rules! prf_func_callbacks_size {
@@ -247,9 +248,10 @@ unsafe fn user_gapm_conf() -> &'static mut GapmConfiguration {
     &mut USER_GAPM_CONF
 }
 
+// TODO: This should be defined in the binary crate
 configure_user_adv_data!(
-    {ADV_TYPE_COMPLETE_LIST_16BIT_SERVICE_IDS, 0x6b, 0xfd},
-    {ADV_TYPE_MANUFACTURER_SPECIFIC_DATA, 0x98, 0x05, 0x01, 0x90, 0x01, 0x02, 0x22}
+    // 0xE1511A45_F3DB_44C0_82B8_6C880790D1F1_u128 in little endian encoding
+    {ADV_TYPE_COMPLETE_LIST_128BIT_SERVICE_IDS, 0xF1, 0xD1, 0x90, 0x07, 0x88, 0x6C, 0xB8, 0x82, 0xC0, 0x44, 0xDB, 0xF3, 0x45, 0x1A, 0x51, 0xE1}
 );
 
 configure_user_scan_response_data!();
@@ -267,7 +269,7 @@ fn update_device_info() {
         device_info.dev_name.name[..cropped_len]
             .copy_from_slice((USER_DEVICE_NAME[..cropped_len]).as_bytes());
 
-        device_info.appearance = 0x0200; // Tag appearance
+        device_info.appearance = USER_DEVICE_APPEARANCE; // Tag appearance
     }
 }
 
