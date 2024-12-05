@@ -17,6 +17,7 @@
 #include "gapm_task.h"
 #include "attm_db_128.h"
 #include "llm.h"
+#include "l2cm.h"
 
 // platform
 #include "syscntl.h"

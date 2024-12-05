@@ -224,7 +224,7 @@ const USER_PRF_FUNCS: [PrfFuncCallbacks; 1] = [PrfFuncCallbacks {
 static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     role: GAP_ROLE_PERIPHERAL,
     // 64 bytes + 3 bytes ATT header
-    max_mtu: 67,
+    max_mtu: 512,
     #[cfg(feature = "address_mode_public")]
     addr_type: app_cfg_addr_type(APP_CFG_ADDR_PUB),
     #[cfg(feature = "address_mode_static")]
