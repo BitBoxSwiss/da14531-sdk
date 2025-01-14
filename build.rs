@@ -121,6 +121,7 @@ const SDK_C_SOURCES: &[&str] = &[
     "/sdk/platform/driver/spi_flash/spi_flash.c",
     "/sdk/platform/driver/syscntl/syscntl.c",
     "/sdk/platform/driver/trng/trng.c",
+    "/sdk/platform/driver/uart/uart.c",
     "/sdk/platform/system_library/src/DA14531/system_library_531.c",
     "/sdk/platform/utilities/otp_cs/otp_cs.c",
     "/sdk/platform/utilities/otp_hdr/otp_hdr.c",
@@ -248,7 +249,7 @@ fn generate_da14531_config_basic() {
         ConfigItem::new("CFG_DEVELOPMENT_DEBUG", Defined),
         ConfigItem::new("CFG_PRINTF", Undefined),
         ConfigItem::new("CFG_UART_ONE_WIRE_SUPPORT", Undefined),
-        ConfigItem::new("CFG_UART1_SDK", Undefined),
+        ConfigItem::new("CFG_UART1_SDK", Defined),
         ConfigItem::new("CFG_SPI_FLASH_ENABLE", Undefined),
         ConfigItem::new("CFG_I2C_EEPROM_ENABLE", Undefined),
         ConfigItem::new("CFG_UART_DMA_SUPPORT", Undefined),
@@ -484,7 +485,13 @@ fn generate_bindings(
         builder.arg(re);
     }
 
-    let constify_enum_module = &["KE_API_ID", "KE_TASK_TYPE", "gapc_msg_id"];
+    let constify_enum_module = &[
+        "KE_API_ID",
+        "KE_TASK_TYPE",
+        "gapc_msg_id",
+        "UART_.*",
+        "GPIO_FUNCTION",
+    ];
     for re in constify_enum_module {
         builder.arg("--constified-enum-module");
         builder.arg(re);
@@ -550,6 +557,7 @@ fn compile_sdk(
         .flag("-specs=nano.specs")
         .flag("-specs=nosys.specs")
         .flag("-flto")
+        .flag("-ggdb")
         .archiver("arm-none-eabi-gcc-ar")
         .ranlib("arm-none-eabi-gcc-ranlib")
         .link_lib_modifier("+whole-archive");

@@ -379,3 +379,101 @@ pub mod spi_flash {
         ret_to_result(unsafe { crate::bindings::spi_flash_wait_till_ready() }, ())
     }
 }
+
+// TODO(nd): Port to rust in the HAL crate
+pub mod uart {
+
+    use crate::bindings::{
+        uart_cfg_t, uart_initialize, uart_receive, uart_rts_shd_setf, uart_rtsn_setf, uart_send,
+        uart_t, UART_AFCE_CFG::*, UART_BAUDRATE::*, UART_DATABITS::*, UART_FIFO_CFG::*,
+        UART_OP_CFG::*, UART_PARITY::*, UART_RBR_THR_DLL_REG as UART1, UART_RX_FIFO_LEVEL::*,
+        UART_STOPBITS::*, UART_TX_FIFO_LEVEL::*,
+    };
+    use rtt_target::rprintln;
+
+    static mut RX_CB: Option<fn(u16)> = None;
+    unsafe extern "C" fn rx_cb(data_cnt: u16) {
+        rprintln!("rx_cb called");
+        if let Some(cb) = RX_CB {
+            cb(data_cnt)
+        }
+    }
+    unsafe extern "C" fn tx_cb(_data_cnt: u16) {
+        rprintln!("tx_cb called");
+    }
+    unsafe extern "C" fn err_cb(_uart: *mut uart_t, _err: u8) {
+        rprintln!("err_cb called");
+    }
+
+    pub fn init() {
+        let uart_cfg: uart_cfg_t = uart_cfg_t {
+            _bitfield_align_1: [],
+            _bitfield_1: uart_cfg_t::new_bitfield_1(
+                UART_BAUDRATE_115200,
+                UART_DATABITS_8,
+                UART_PARITY_NONE,
+                UART_STOPBITS_1,
+                UART_AFCE_EN,
+                UART_FIFO_EN,
+                UART_TX_FIFO_LEVEL_0,
+                UART_RX_FIFO_LEVEL_0,
+            ),
+            intr_priority: 2,
+            uart_err_cb: Some(err_cb),
+            uart_tx_cb: Some(tx_cb),
+            uart_rx_cb: Some(rx_cb),
+        };
+        unsafe { uart_initialize(UART1 as *mut _, &uart_cfg) }
+        //unsafe { uart_rts_shd_setf(UART1 as *mut _, 1) }
+    }
+
+    /// Send all bytes
+    pub fn send_blocking(buf: &[u8]) {
+        if buf.len() > u16::MAX as usize {
+            panic!("Too large buffer");
+        }
+        unsafe {
+            uart_send(
+                UART1 as *mut _,
+                buf.as_ptr(),
+                buf.len() as u16,
+                UART_OP_BLOCKING,
+            )
+        }
+    }
+
+    /// Read until buffer is full and then return
+    pub fn recv_blocking(buf: &mut [u8]) {
+        if buf.len() > u16::MAX as usize {
+            // max 16?
+            panic!("Too large buffer");
+        }
+        unsafe {
+            uart_receive(
+                UART1 as *mut _,
+                buf.as_mut_ptr(),
+                buf.len() as u16,
+                UART_OP_BLOCKING,
+            )
+        }
+    }
+
+    pub fn recv_interrupt(buf: &mut [u8]) {
+        unsafe {
+            uart_receive(
+                UART1 as *mut _,
+                buf.as_mut_ptr(),
+                buf.len() as u16,
+                UART_OP_INTR,
+            )
+        }
+    }
+
+    pub fn register_rx_cb(callback: fn(u16)) {
+        unsafe { RX_CB = Some(callback) }
+    }
+
+    pub fn unregister_rx_cb() {
+        unsafe { RX_CB = None }
+    }
+}

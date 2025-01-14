@@ -30,6 +30,7 @@
 #include "spi_flash.h"
 #include "syscntl.h"
 #include "system_library.h"
+#include "uart.h"
 
 const uint8_t APP_MODULES_TIMER_MAX_NUM =
     (APP_TIMER_API_LAST_MES - APP_TIMER_API_MES0 + 1);
