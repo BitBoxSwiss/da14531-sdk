@@ -409,7 +409,7 @@ pub mod uart {
         let uart_cfg: uart_cfg_t = uart_cfg_t {
             _bitfield_align_1: [],
             _bitfield_1: uart_cfg_t::new_bitfield_1(
-                UART_BAUDRATE_115200,
+                UART_BAUDRATE_19200,
                 UART_DATABITS_8,
                 UART_PARITY_NONE,
                 UART_STOPBITS_1,
