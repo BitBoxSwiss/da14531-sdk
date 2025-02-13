@@ -69,7 +69,6 @@ impl TimerState {
     }
 }
 
-#[used]
 #[link_section = "retention_mem_area0"]
 static TIMER_CALLBACKS: GroundedArrayCell<TimerState, { APP_MODULES_TIMER_MAX_NUM as usize }> =
     GroundedArrayCell::const_init();

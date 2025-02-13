@@ -38,6 +38,9 @@ use crate::app_modules::APP_CFG_ADDR_PUB;
 #[cfg(feature = "address_mode_static")]
 use crate::app_modules::APP_CFG_ADDR_STATIC;
 
+#[cfg(feature = "address_mode_priv_rpa_rand")]
+use crate::bindings::APP_CFG_CNTL_PRIV_RPA_RAND;
+
 mod advertise;
 
 use advertise::*;
@@ -221,6 +224,7 @@ const USER_PRF_FUNCS: [PrfFuncCallbacks; 1] = [PrfFuncCallbacks {
     enable_func: None,
 }];
 
+#[export_name = "user_gapm_conf"]
 static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     role: GAP_ROLE_PERIPHERAL,
     // 64 bytes + 3 bytes ATT header
@@ -229,6 +233,8 @@ static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     addr_type: app_cfg_addr_type(APP_CFG_ADDR_PUB),
     #[cfg(feature = "address_mode_static")]
     addr_type: app_cfg_addr_type(APP_CFG_ADDR_STATIC),
+    #[cfg(feature = "address_mode_priv_rpa_rand")]
+    addr_type: app_cfg_addr_type(APP_CFG_CNTL_PRIV_RPA_RAND),
     addr: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
     renew_dur: 15000,
     irk: [

@@ -2,9 +2,11 @@
 
 // app_modules
 #include "app.h"
+#include "app_bond_db.h"
 #include "app_callback.h"
 #include "app_customs.h"
 #include "app_easy_gap.h"
+#include "app_easy_security.h"
 #include "app_entry_point.h"
 #include "app_prf_types.h"
 #include "app_task.h"

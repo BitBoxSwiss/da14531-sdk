@@ -62,6 +62,7 @@ sleep_mode_off = []
 # BLE address modes
 address_mode_public = []
 address_mode_static = []
+address_mode_priv_rpa_rand = []
 
 # BLE profiles
 ble_client_profiles = ["ble_profiles"]
@@ -87,4 +88,4 @@ profile_wss_server = ["ble_server_profiles"]
 
 # Other features
 exclude_dlg_timer = []
-app_security = []
+app_security = ["da14531-sdk-macros/app_security"]

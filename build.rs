@@ -89,11 +89,16 @@ const CONFIG_HEADERS: &[&str] = &[
     "user_config.h",
 ];
 const SDK_C_SOURCES: &[&str] = &[
+    "/sdk/app_modules/src/app_bond_db/app_bond_db.c",
     "/sdk/app_modules/src/app_common/app_msg_utils.c",
     "/sdk/app_modules/src/app_common/app_task.c",
+    "/sdk/app_modules/src/app_common/app_utils.c",
     "/sdk/app_modules/src/app_custs/app_customs_task.c",
     "/sdk/app_modules/src/app_default_hnd/app_default_handlers.c",
+    "/sdk/app_modules/src/app_easy/app_easy_security.c",
     "/sdk/app_modules/src/app_entry/app_entry_point.c",
+    "/sdk/app_modules/src/app_sec/app_security.c",
+    "/sdk/app_modules/src/app_sec/app_security_task.c",
     "/sdk/ble_stack/profiles/custom/custs/src/custs1_task.c",
     "/sdk/ble_stack/profiles/prf.c",
     "/sdk/ble_stack/rwble/rwble.c",
@@ -242,7 +247,7 @@ fn generate_da14531_config_basic() {
     #[rustfmt::skip]
     let vars = &[
         ConfigItem::new("CFG_APP", Defined),
-        ConfigItem::new("CFG_APP_SECURITY",  if cfg!(feature = "app_security") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_APP_SECURITY", if cfg!(feature = "app_security") {Defined} else {Undefined}),
         ConfigItem::new("CFG_WDOG", Defined),
         ConfigItem::new("CFG_WDG_TRIGGER_HW_RESET_IN_PRODUCTION_MODE", Undefined),
         ConfigItem::new("CFG_MAX_CONNECTIONS", Number(1)),
@@ -268,7 +273,7 @@ fn generate_user_modules_config() {
         ConfigItem::new("EXCLUDE_DLG_GAP", Number(0)),
         ConfigItem::new("EXCLUDE_DLG_TIMER", Number(0)),
         ConfigItem::new("EXCLUDE_DLG_MSG", Number(1)),
-        ConfigItem::new("EXCLUDE_DLG_SEC", Number(1)),
+        ConfigItem::new("EXCLUDE_DLG_SEC", Number(if cfg!(feature = "app_security") { 0 } else { 1 })),
         ConfigItem::new("EXCLUDE_DLG_DISS", Number(if cfg!(feature = "profile_dis_server") { 0 } else { 1 })),
         ConfigItem::new("EXCLUDE_DLG_PROXR", Number(if cfg!(feature = "profile_prox_reporter") { 0 } else { 1 })),
         ConfigItem::new("EXCLUDE_DLG_BASS", Number(if cfg!(feature = "profile_batt_server") { 0 } else { 1 })),
@@ -306,6 +311,8 @@ fn generate_user_config() {
         "APP_CFG_ADDR_PUB"
     } else if cfg!(feature = "address_mode_static") {
         "APP_CFG_ADDR_STATIC"
+    } else if cfg!(feature = "address_mode_priv_rpa_rand") {
+        "APP_CFG_CNTL_PRIV_RPA_RAND"
     } else {
         panic!("One address mode feature flag has to be set!");
     };

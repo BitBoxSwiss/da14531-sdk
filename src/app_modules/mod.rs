@@ -15,9 +15,12 @@ pub use crate::bindings::{
     EASY_TIMER_INVALID_TIMER, PRFS_TASK_ID_MAX,
 };
 
+#[cfg(feature = "app_security")]
+pub use crate::bindings::app_bond_db_callbacks as AppBondDbCallbacks;
+
 pub use da14531_sdk_macros::{
     configure_custom_server1_service, configure_device_information_service,
-    default_handlers_configuration, register_app_callbacks,
+    default_handlers_configuration, register_app_bond_db_callbacks, register_app_callbacks,
 };
 
 use crate::platform::core_modules::{

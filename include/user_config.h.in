@@ -211,6 +211,7 @@ ${USER_DEVICE_NAME}
  *
  ****************************************************************************************
  */
+extern struct gapm_configuration user_gapm_conf;
 // static const struct gapm_configuration user_gapm_conf = {
 //     /// Device Role: Central, Peripheral, Observer, Broadcaster or All roles. (@see enum gap_role)
 //     .role = GAP_ROLE_PERIPHERAL,
@@ -444,55 +445,33 @@ extern const struct default_handlers_configuration  user_default_hnd_conf;
  *
  ****************************************************************************************
  */
-// static const struct security_configuration user_security_conf = {
-//     // IO Capabilities
-//     #if defined (USER_CFG_FEAT_IO_CAP)
-//     .iocap          = USER_CFG_FEAT_IO_CAP,
-//     #else
-//     .iocap          = GAP_IO_CAP_NO_INPUT_NO_OUTPUT,
-//     #endif
-// 
-//     // OOB Capabilities
-//     #if defined (USER_CFG_FEAT_OOB)
-//     .oob            = USER_CFG_FEAT_OOB,
-//     #else
-//     .oob            = GAP_OOB_AUTH_DATA_NOT_PRESENT,
-//     #endif
-// 
-//     // Authentication Requirements
-//     #if defined (USER_CFG_FEAT_AUTH_REQ)
-//     .auth           = USER_CFG_FEAT_AUTH_REQ,
-//     #else
-//     .auth           = GAP_AUTH_NONE,
-//     #endif
-// 
-//     // LTK size
-//     #if defined (USER_CFG_FEAT_KEY_SIZE)
-//     .key_size       = USER_CFG_FEAT_KEY_SIZE,
-//     #else
-//     .key_size       = KEY_LEN,
-//     #endif
-// 
-//     // Initiator key distribution
-//     #if defined (USER_CFG_FEAT_INIT_KDIST)
-//     .ikey_dist      = USER_CFG_FEAT_INIT_KDIST,
-//     #else
-//     .ikey_dist      = GAP_KDIST_NONE,
-//     #endif
-// 
-//     // Responder key distribution
-//     #if defined (USER_CFG_FEAT_RESP_KDIST)
-//     .rkey_dist      = USER_CFG_FEAT_RESP_KDIST,
-//     #else
-//     .rkey_dist      = GAP_KDIST_ENCKEY,
-//     #endif
-// 
-//     // Security requirements (minimum security level)
-//     #if defined (USER_CFG_FEAT_SEC_REQ)
-//     .sec_req        = USER_CFG_FEAT_SEC_REQ,
-//     #else
-//     .sec_req        = GAP_NO_SEC,
-//     #endif
-// };
+#if (BLE_APP_SEC)
+static const struct security_configuration user_security_conf = {
+    // IO Capabilities
+    .iocap          = GAP_IO_CAP_DISPLAY_YES_NO,
+
+    // OOB Capabilities
+    .oob            = GAP_OOB_AUTH_DATA_NOT_PRESENT,
+
+    // Authentication Requirements
+    .auth           = (GAP_AUTH_BOND | GAP_AUTH_MITM | GAP_AUTH_SEC),
+
+    // LTK size
+    .key_size       = 0x10,
+
+    // Initiator key distribution
+    .ikey_dist      = (GAP_KDIST_ENCKEY | GAP_KDIST_IDKEY | GAP_KDIST_SIGNKEY),
+
+    // Responder key distribution
+    .rkey_dist      = (GAP_KDIST_ENCKEY | GAP_KDIST_IDKEY | GAP_KDIST_SIGNKEY),
+
+    // Security requirements (minimum security level)
+    .sec_req        = GAP_SEC1_SEC_PAIR_ENC, //GAP_SEC1_NOAUTH_PAIR_ENC,
+};
+
+#endif
+
+//#define APP_SECURITY_MITM_PASSKEY_VAL (123456)
+#define USER_CFG_BOND_DB_MAX_BONDED_PEERS 1
 
 #endif // _USER_CONFIG_H_
