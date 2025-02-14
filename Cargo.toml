@@ -25,7 +25,7 @@ links = "da14531_sdk"
 cty = "0.2.2"
 da14531-sdk-macros = "0.2.0"
 paste = "1.0.7"
-rtt-target = "0.3.1"
+rtt-target = "0.6.1"
 grounded = "0.2.0"
 
 [build-dependencies]
