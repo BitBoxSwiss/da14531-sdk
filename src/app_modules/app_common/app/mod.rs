@@ -9,6 +9,7 @@ use crate::{
         zero_app_prf_srv_sec, AdvertiseConfiguration, AppCallbacks, AppPrfSrvSec,
         GapmConfiguration, PrfFuncCallbacks, PRFS_TASK_ID_MAX,
     },
+    bindings::{gapm_addr_type_GAPM_CFG_ADDR_PUBLIC, ADDR_PUBLIC, ADDR_RAND},
     ble_stack::{
         controller::llm::llm_le_env,
         host::gap::{
@@ -227,8 +228,11 @@ const USER_PRF_FUNCS: [PrfFuncCallbacks; 1] = [PrfFuncCallbacks {
 #[export_name = "user_gapm_conf"]
 static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     role: GAP_ROLE_PERIPHERAL,
-    // 64 bytes + 3 bytes ATT header
-    max_mtu: 512,
+    // The maximum value of max_mtu is 512
+    // ATT header is 3 bytes (of those 512)
+    // Secure connection header is 42 bytes?
+    // We need to send 64 byte packets
+    max_mtu: 185,
     #[cfg(feature = "address_mode_public")]
     addr_type: app_cfg_addr_type(APP_CFG_ADDR_PUB),
     #[cfg(feature = "address_mode_static")]
@@ -338,6 +342,10 @@ pub extern "C" fn app_prf_enable(conidx: u8) {
     callbacks.for_each(|cb| unsafe { cb(conidx) });
 }
 
+extern "C" {
+    static gapm_env: crate::bindings::gapm_env_tag;
+}
+
 fn app_easy_gap_undirected_advertise_start_create_msg() -> KeMsgGapmStartAdvertiseCmd {
     #[allow(static_mut_refs)]
     let user_advertise_data = unsafe { &USER_ADVERTISE_DATA };
@@ -372,6 +380,27 @@ fn app_easy_gap_undirected_advertise_start_create_msg() -> KeMsgGapmStartAdverti
     host.scan_rsp_data_len = USER_ADVERTISE_SCAN_RESPONSE_DATA.len() as u8;
     host.scan_rsp_data[..USER_ADVERTISE_SCAN_RESPONSE_DATA.len()]
         .copy_from_slice(&USER_ADVERTISE_SCAN_RESPONSE_DATA);
+
+    #[cfg(feature = "address_mode_priv_rpa_rand")]
+    {
+        // Local Address has been added to RAL. Use this entry to advertise with RPA
+        //         memcpy(cmd->info.host.peer_info.addr.addr, &(gapm_env.addr), BD_ADDR_LEN * sizeof(uint8_t));
+        //         cmd->info.host.peer_info.addr_type = ((GAPM_F_GET(gapm_env.cfg_flags, ADDR_TYPE) == GAPM_CFG_ADDR_PUBLIC) ? ADDR_PUBLIC : ADDR_RAND);
+        unsafe {
+            //rtt_target::rprintln!("{:x?}", host.peer_info.addr.addr);
+            host.peer_info
+                .addr
+                .addr
+                .copy_from_slice(&gapm_env.addr.addr);
+            //rtt_target::rprintln!("{:x?}", host.peer_info.addr.addr);
+            let is_pub = (gapm_env.cfg_flags & 0x3) == gapm_addr_type_GAPM_CFG_ADDR_PUBLIC as u16;
+            host.peer_info.addr_type = if is_pub {
+                ADDR_PUBLIC as u8
+            } else {
+                ADDR_RAND as u8
+            };
+        }
+    }
 
     // #if (USER_CFG_ADDRESS_MODE == APP_CFG_CNTL_PRIV_RPA_RAND)
     //         // Local Address has been added to RAL. Use this entry to advertise with RPA
